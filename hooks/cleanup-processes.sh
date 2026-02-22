@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Claude Code orphaned process cleanup
-# Kills orphaned bun worker daemons and their entire process trees
-# (subagents, MCP servers) that persist after sessions end or crash.
+# 1. Kills orphaned bun worker daemons and their entire process trees
+#    (subagents, MCP servers) that persist after sessions end or crash.
+# 2. Removes old Claude Code binary versions, keeping only the current one.
 #
 # Safe for parallel sessions: only targets process trees whose root
 # daemon has PPID=1 (adopted by launchd = orphaned). Active sessions'
@@ -148,6 +149,31 @@ if [[ $KILLED_COUNT -gt 0 ]]; then
   log "Cleanup complete: killed $KILLED_COUNT orphaned process tree(s) [mode: $MODE_LABEL]"
 else
   log "Cleanup: no orphaned processes found [mode: $MODE_LABEL]"
+fi
+
+# --- Old version cleanup ---
+# Remove old Claude Code binaries, keeping only the currently running version.
+VERSIONS_DIR="$HOME/.local/share/claude/versions"
+if [[ -d "$VERSIONS_DIR" ]]; then
+  CURRENT_VERSION=$(claude --version 2>/dev/null | awk '{print $1}')
+  if [[ -n "$CURRENT_VERSION" ]]; then
+    REMOVED_COUNT=0
+    FREED_BYTES=0
+    for version_file in "$VERSIONS_DIR"/*; do
+      [[ -e "$version_file" ]] || continue
+      version_name=$(basename "$version_file")
+      if [[ "$version_name" != "$CURRENT_VERSION" ]]; then
+        file_size=$(stat -f%z "$version_file" 2>/dev/null || echo 0)
+        FREED_BYTES=$((FREED_BYTES + file_size))
+        rm -f "$version_file"
+        log "REMOVED old version $version_name ($(( file_size / 1048576 ))MB)"
+        ((REMOVED_COUNT++)) || true
+      fi
+    done
+    if [[ $REMOVED_COUNT -gt 0 ]]; then
+      log "Version cleanup: removed $REMOVED_COUNT old version(s), freed $(( FREED_BYTES / 1048576 ))MB [mode: $MODE_LABEL]"
+    fi
+  fi
 fi
 
 exit 0

@@ -1,12 +1,12 @@
 ---
 name: cleanup
-description: Kill orphaned Claude Code processes and report memory usage. Use when the system feels slow or after crashes.
+description: Kill orphaned Claude Code processes, remove old versions, and report memory/disk usage. Use when the system feels slow or after crashes.
 user_invocable: true
 ---
 
-# Process Cleanup
+# Claude Code Cleanup
 
-Kill orphaned Claude Code processes (bun workers, subagents, MCP servers) that persist after sessions end or crash.
+Kill orphaned Claude Code processes (bun workers, subagents, MCP servers) and remove old binary versions.
 
 ## Steps
 
@@ -19,7 +19,13 @@ Kill orphaned Claude Code processes (bun workers, subagents, MCP servers) that p
    echo "=== Detached MCP servers ===" && \
    ps -eo pid,ppid,tty,rss,command | grep 'node.*mcp-server' | grep -v grep | awk '$3 == "??"' && \
    echo "=== Memory summary ===" && \
-   ps -eo rss,command | grep -E '(worker-service|claude.*stream-json|node.*mcp-server)' | grep -v grep | awk '{sum += $1} END {printf "Total RSS: %.0f MB\n", sum/1024}'
+   ps -eo rss,command | grep -E '(worker-service|claude.*stream-json|node.*mcp-server)' | grep -v grep | awk '{sum += $1} END {printf "Total RSS: %.0f MB\n", sum/1024}' && \
+   echo "=== Old Claude versions ===" && \
+   CURRENT=$(claude --version 2>/dev/null | awk '{print $1}') && \
+   for f in ~/.local/share/claude/versions/*; do \
+     v=$(basename "$f"); size=$(du -sh "$f" | awk '{print $1}'); \
+     if [ "$v" = "$CURRENT" ]; then echo "  $v ($size) [CURRENT]"; else echo "  $v ($size) [OLD - will remove]"; fi; \
+   done
    ```
 
 2. **Show the user** what was found and how much memory it's using.
