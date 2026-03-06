@@ -11,6 +11,7 @@
 # Usage:
 #   cleanup-processes.sh            # Normal cleanup (SessionEnd)
 #   cleanup-processes.sh --startup  # Startup cleanup (SessionStart)
+#   cleanup-processes.sh --stop     # Per-reply cleanup (Stop hook)
 
 set -euo pipefail
 
@@ -18,8 +19,12 @@ LOG_DIR="$HOME/.claude/logs"
 LOG_FILE="$LOG_DIR/cleanup.log"
 mkdir -p "$LOG_DIR"
 
-STARTUP_MODE=false
-[[ "${1:-}" == "--startup" ]] && STARTUP_MODE=true
+MODE=""
+case "${1:-}" in
+  --startup) MODE="startup" ;;
+  --stop)    MODE="stop" ;;
+  *)         MODE="session-end" ;;
+esac
 
 MY_PID=$$
 
@@ -144,7 +149,7 @@ while IFS= read -r line; do
   fi
 done < <(ps -eo pid,ppid,command 2>/dev/null | grep 'node.*mcp-server' | grep -v grep || true)
 
-MODE_LABEL=$(if $STARTUP_MODE; then echo startup; else echo session-end; fi)
+MODE_LABEL="$MODE"
 if [[ $KILLED_COUNT -gt 0 ]]; then
   log "Cleanup complete: killed $KILLED_COUNT orphaned process tree(s) [mode: $MODE_LABEL]"
 else

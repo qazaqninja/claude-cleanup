@@ -18,6 +18,13 @@ The cleanup script identifies orphaned process trees by checking for **PPID=1** 
 ### Automatic cleanup
 - **SessionEnd hook**: runs when sessions exit normally (`/exit`, Ctrl+C)
 - **SessionStart hook**: catches stragglers from crashes/hard kills
+- **Stop hook** (optional): runs after every assistant reply — useful for long-lived sessions where orphans accumulate between session boundaries
+
+The Stop hook requires no action — it runs automatically after every Claude reply. Check the log to verify:
+
+```bash
+tail -20 ~/.claude/logs/cleanup.log
+```
 
 ### Manual cleanup
 - `/cleanup` skill: surveys processes, shows memory usage, asks confirmation, then cleans up
@@ -58,6 +65,17 @@ Then add hooks to `~/.claude/settings.json`:
           {
             "type": "command",
             "command": "~/.claude/hooks/cleanup-processes.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/cleanup-processes.sh --stop",
             "timeout": 10
           }
         ]
